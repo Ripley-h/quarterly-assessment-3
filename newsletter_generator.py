@@ -25,7 +25,6 @@ import json
 from rich.progress import Progress
 
 # --- Basic Configuration ---
-# Set up logging to suppress unnecessary warnings
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
@@ -98,27 +97,92 @@ class NewsletterGenerator:
 
     def create_newsletter_content(self, title, topic, articles):
         """
-        Creates the full newsletter content with an introduction, summaries, and a closing.
+        Creates the full newsletter content as an HTML string with styling.
         """
         if not articles:
             return "No articles found for the newsletter."
 
-        total_tasks = 2 + len(articles)
-        newsletter_output = [f"# {title}\n\nHere's your daily update on {topic}:\n"]
+        # Start of the HTML document with embedded CSS for styling
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                }}
+                h1 {{
+                    color: #2c3e50;
+                    text-align: center;
+                }}
+                h2 {{
+                    color: #3498db;
+                    border-bottom: 2px solid #ecf0f1;
+                    padding-bottom: 10px;
+                }}
+                .article {{
+                    margin-bottom: 25px;
+                }}
+                .summary-header {{
+                    font-weight: bold;
+                    color: #7f8c8d;
+                    margin-bottom: 5px;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 30px;
+                    font-size: 0.9em;
+                    color: #95a5a6;
+                }}
+                a {{
+                    color: #3498db;
+                    text-decoration: none;
+                }}
+                a:hover {{
+                    text-decoration: underline;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>{title}</h1>
+                <p>Here is your daily update on <strong>{topic}</strong>:</p>
+        """
 
         with Progress() as progress:
-            task = progress.add_task("[cyan]Generating newsletter...", total=total_tasks)
+            task = progress.add_task("[cyan]Generating newsletter...", total=len(articles))
 
-            for i, article in enumerate(articles):
-                progress.update(task, advance=1, description=f"[cyan]Summarizing article {i+1}/{len(articles)}...")
-                summary = self.summarize_article(article.get('content') or article.get('description', ''))
-                newsletter_output.append(f"## {article['title']}\n\n{summary}\n\n[Read more]({article['url']})\n")
+            for article in articles:
+                progress.update(task, advance=1, description=f"[cyan]Summarizing article...")
+                
+                # Use description as fallback if content is null
+                content_to_summarize = article.get('content') or article.get('description', '')
+                summary = self.summarize_article(content_to_summarize)
 
-            progress.update(task, advance=1, description="[cyan]Finalizing newsletter...")
-            newsletter_output.append("\nWe hope you enjoyed this update. Stay tuned for more!\n")
-            progress.update(task, advance=1, description="[green]Done!")
+                html_content += f"""
+                <div class="article">
+                    <h2>{article['title']}</h2>
+                    <p class="summary-header">Summary</p>
+                    <p>{summary}</p>
+                    <a href="{article['url']}" target="_blank">Read Full Article</a>
+                </div>
+                """
 
-        return "\n".join(newsletter_output)
+        html_content += """
+                <div class="footer">
+                    <p>This newsletter was generated automatically. We hope you enjoyed this update!</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return html_content
 
     def send_email(self, subject, body, sender_email, recipient_email, smtp_server, smtp_port, smtp_user, smtp_password):
         """
@@ -128,7 +192,9 @@ class NewsletterGenerator:
         msg['From'] = sender_email
         msg['To'] = recipient_email
         msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
+        
+        # Attach the body as HTML
+        msg.attach(MIMEText(body, 'html'))
 
         try:
             with smtplib.SMTP(smtp_server, smtp_port) as server:
@@ -166,11 +232,11 @@ def main():
     parser.add_argument("--smtp-password", type=str, help="SMTP password")
     
     # --- Output Arguments ---
-    parser.add_argument("-o", "--output-file", type=str, help="Output filename to save the newsletter")
+    parser.add_argument("-o", "--output-file", type=str, help="Output filename to save the newsletter (e.g., newsletter.html)")
 
     args = parser.parse_args()
 
-    # --- Create cache directory ---
+    # --- Create cache directory if it doesn't exist ---
     if not os.path.exists("./cache"):
         os.makedirs("./cache")
 
@@ -178,20 +244,21 @@ def main():
     articles = generator.fetch_articles(args.topic, args.max)
 
     if articles:
-        newsletter_text = generator.create_newsletter_content(args.title, args.topic, articles)
+        newsletter_html = generator.create_newsletter_content(args.title, args.topic, articles)
         
         if args.output_file:
-            with open(args.output_file, "w") as f:
-                f.write(newsletter_text)
+            with open(args.output_file, "w", encoding="utf-8") as f:
+                f.write(newsletter_html)
             print(f"Newsletter saved to {args.output_file}")
         else:
-            print(newsletter_text)
+            # Print a message as the HTML output is too long for the console
+            print("Newsletter content generated successfully. Use -o to save to a file or --send-email to send.")
 
         if args.send_email:
             if all([args.recipient_email, args.sender_email, args.smtp_server, args.smtp_user, args.smtp_password]):
                 generator.send_email(
                     subject=args.title,
-                    body=newsletter_text,
+                    body=newsletter_html,
                     sender_email=args.sender_email,
                     recipient_email=args.recipient_email,
                     smtp_server=args.smtp_server,
@@ -205,7 +272,6 @@ def main():
         print("Failed to generate newsletter because no articles could be fetched.")
 
     print(f"\nTotal runtime: {time.time() - start_time:.2f} seconds")
-
 
 if __name__ == "__main__":
     main()
