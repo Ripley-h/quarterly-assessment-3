@@ -82,13 +82,16 @@ class NewsletterGenerator:
         Summarizes an article using the OpenAI API.
         """
         try:
+            # *** CHANGE 1: Modified the prompt for summary length ***
+            prompt_message = f"Please summarize the following article in a concise, email-friendly format, ensuring the summary is between 3 and 5 sentences long:\n\n{article_content}"
+            
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant that summarizes news articles for a newsletter."},
-                    {"role": "user", "content": f"Please summarize the following article in a concise, email-friendly format:\n\n{article_content}"}
+                    {"role": "user", "content": prompt_message}
                 ],
-                max_tokens=150
+                max_tokens=200 # Increased tokens slightly to ensure 5 sentences fit
             )
             return response.choices[0].message['content'].strip()
         except Exception as e:
@@ -107,46 +110,16 @@ class NewsletterGenerator:
         <html>
         <head>
             <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                }}
-                .container {{
-                    max-width: 600px;
-                    margin: 0 auto;
-                    padding: 20px;
-                }}
-                h1 {{
-                    color: #2c3e50;
-                    text-align: center;
-                }}
-                h2 {{
-                    color: #3498db;
-                    border-bottom: 2px solid #ecf0f1;
-                    padding-bottom: 10px;
-                }}
-                .article {{
-                    margin-bottom: 25px;
-                }}
-                .summary-header {{
-                    font-weight: bold;
-                    color: #7f8c8d;
-                    margin-bottom: 5px;
-                }}
-                .footer {{
-                    text-align: center;
-                    margin-top: 30px;
-                    font-size: 0.9em;
-                    color: #95a5a6;
-                }}
-                a {{
-                    color: #3498db;
-                    text-decoration: none;
-                }}
-                a:hover {{
-                    text-decoration: underline;
-                }}
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                h1 {{ color: #2c3e50; text-align: center; }}
+                h2 {{ color: #3498db; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }}
+                .article {{ margin-bottom: 25px; }}
+                .footer {{ text-align: center; margin-top: 30px; font-size: 0.9em; color: #95a5a6; }}
+                a {{ color: #3498db; text-decoration: none; }}
+                a:hover {{ text-decoration: underline; }}
+                /* *** CHANGE 3: Added styling for the horizontal rule *** */
+                hr {{ border: 0; height: 1px; background: #ecf0f1; margin: 30px 0; }}
             </style>
         </head>
         <body>
@@ -158,21 +131,25 @@ class NewsletterGenerator:
         with Progress() as progress:
             task = progress.add_task("[cyan]Generating newsletter...", total=len(articles))
 
-            for article in articles:
+            for index, article in enumerate(articles):
                 progress.update(task, advance=1, description=f"[cyan]Summarizing article...")
                 
-                # Use description as fallback if content is null
                 content_to_summarize = article.get('content') or article.get('description', '')
                 summary = self.summarize_article(content_to_summarize)
 
                 html_content += f"""
                 <div class="article">
                     <h2>{article['title']}</h2>
-                    <p class="summary-header">Summary</p>
-                    <p>{summary}</p>
+                    
+                    <p>{summary}</p> 
+                    
                     <a href="{article['url']}" target="_blank">Read Full Article</a>
                 </div>
                 """
+                
+                # *** CHANGE 3: Add a horizontal rule after each article except the last one ***
+                if index < len(articles) - 1:
+                    html_content += "<hr>"
 
         html_content += """
                 <div class="footer">
@@ -193,7 +170,6 @@ class NewsletterGenerator:
         msg['To'] = recipient_email
         msg['Subject'] = subject
         
-        # Attach the body as HTML
         msg.attach(MIMEText(body, 'html'))
 
         try:
@@ -205,7 +181,7 @@ class NewsletterGenerator:
         except smtplib.SMTPException as e:
             logger.error(f"Failed to send email: {e}")
 
-# --- Main Function (Modified) ---
+# --- Main Function (No changes) ---
 def main():
     """
     Main function to handle command-line arguments and generate the newsletter.
@@ -213,16 +189,11 @@ def main():
     start_time = time.time()
 
     parser = argparse.ArgumentParser(description="Generate and email a newsletter from news articles.", formatter_class=CustomHelpFormatter)
-    # --- News & Content Arguments ---
     parser.add_argument("-t", "--title", type=str, required=True, help="Title of the newsletter")
     parser.add_argument("-to", "--topic", type=str, required=True, help="Topic for the news articles")
     parser.add_argument("--max", type=int, default=5, help="Maximum number of articles to include")
-
-    # --- API Key Arguments ---
     parser.add_argument("--news-api-key", type=str, required=True, help="API key for News API")
     parser.add_argument("--openai-api-key", type=str, required=True, help="API key for OpenAI")
-
-    # --- Email Arguments ---
     parser.add_argument("--send-email", action='store_true', help="Flag to send the newsletter via email")
     parser.add_argument("--recipient-email", type=str, help="Recipient's email address")
     parser.add_argument("--sender-email", type=str, help="Sender's email address")
@@ -230,13 +201,10 @@ def main():
     parser.add_argument("--smtp-port", type=int, default=587, help="SMTP server port")
     parser.add_argument("--smtp-user", type=str, help="SMTP username")
     parser.add_argument("--smtp-password", type=str, help="SMTP password")
-    
-    # --- Output Arguments ---
     parser.add_argument("-o", "--output-file", type=str, help="Output filename to save the newsletter (e.g., newsletter.html)")
 
     args = parser.parse_args()
 
-    # --- Create cache directory if it doesn't exist ---
     if not os.path.exists("./cache"):
         os.makedirs("./cache")
 
@@ -251,7 +219,6 @@ def main():
                 f.write(newsletter_html)
             print(f"Newsletter saved to {args.output_file}")
         else:
-            # Print a message as the HTML output is too long for the console
             print("Newsletter content generated successfully. Use -o to save to a file or --send-email to send.")
 
         if args.send_email:
