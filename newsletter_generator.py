@@ -21,6 +21,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import openai
+import json
 from rich.progress import Progress
 
 # --- Basic Configuration ---
