@@ -82,7 +82,6 @@ class NewsletterGenerator:
         Summarizes an article using the OpenAI API.
         """
         try:
-            # *** CHANGE 1: Modified the prompt for summary length ***
             prompt_message = f"Please summarize the following article in a concise, email-friendly format, ensuring the summary is between 3 and 5 sentences long:\n\n{article_content}"
             
             response = openai.ChatCompletion.create(
@@ -91,7 +90,7 @@ class NewsletterGenerator:
                     {"role": "system", "content": "You are a helpful assistant that summarizes news articles for a newsletter."},
                     {"role": "user", "content": prompt_message}
                 ],
-                max_tokens=200 # Increased tokens slightly to ensure 5 sentences fit
+                max_tokens=200
             )
             return response.choices[0].message['content'].strip()
         except Exception as e:
@@ -109,17 +108,58 @@ class NewsletterGenerator:
         html_content = f"""
         <html>
         <head>
+            <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
             <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                h1 {{ color: #2c3e50; text-align: center; }}
-                h2 {{ color: #3498db; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }}
-                .article {{ margin-bottom: 25px; }}
-                .footer {{ text-align: center; margin-top: 30px; font-size: 0.9em; color: #95a5a6; }}
-                a {{ color: #3498db; text-decoration: none; }}
-                a:hover {{ text-decoration: underline; }}
-                /* *** CHANGE 3: Added styling for the horizontal rule *** */
-                hr {{ border: 0; height: 1px; background: #ecf0f1; margin: 30px 0; }}
+                body {{
+                    font-family: 'Montserrat', sans-serif;
+                    line-height: 1.6;
+                    color: #34495e;
+                    background-color: #f4f7f6;
+                    margin: 0;
+                    padding: 0;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 20px auto;
+                    padding: 25px;
+                    background-color: #ffffff;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+                }}
+                h1 {{
+                    color: #2c3e50;
+                    text-align: center;
+                    font-weight: 700;
+                }}
+                h2 {{
+                    color: #1abc9c;
+                    border-bottom: 2px solid #f4f7f6;
+                    padding-bottom: 10px;
+                    font-weight: 700;
+                }}
+                .article {{
+                    margin-bottom: 25px;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 30px;
+                    font-size: 0.9em;
+                    color: #95a5a6;
+                }}
+                a {{
+                    color: #1abc9c;
+                    text-decoration: none;
+                    font-weight: bold;
+                }}
+                a:hover {{
+                    text-decoration: underline;
+                }}
+                hr {{
+                    border: 0;
+                    height: 1px;
+                    background: #e0e5e4;
+                    margin: 30px 0;
+                }}
             </style>
         </head>
         <body>
@@ -140,14 +180,11 @@ class NewsletterGenerator:
                 html_content += f"""
                 <div class="article">
                     <h2>{article['title']}</h2>
-                    
                     <p>{summary}</p> 
-                    
-                    <a href="{article['url']}" target="_blank">Read Full Article</a>
+                    <a href="{article['url']}" target="_blank">Read Full Article &rarr;</a>
                 </div>
                 """
                 
-                # *** CHANGE 3: Add a horizontal rule after each article except the last one ***
                 if index < len(articles) - 1:
                     html_content += "<hr>"
 
@@ -169,7 +206,6 @@ class NewsletterGenerator:
         msg['From'] = sender_email
         msg['To'] = recipient_email
         msg['Subject'] = subject
-        
         msg.attach(MIMEText(body, 'html'))
 
         try:
@@ -222,7 +258,7 @@ def main():
             print("Newsletter content generated successfully. Use -o to save to a file or --send-email to send.")
 
         if args.send_email:
-            if all([args.recipient_email, args.sender_email, args.smtp_server, args.smtp_user, args.smtp_password]):
+            if all([args.recipient_email, args.sender-email, args.smtp_server, args.smtp_user, args.smtp_password]):
                 generator.send_email(
                     subject=args.title,
                     body=newsletter_html,
