@@ -258,7 +258,7 @@ def main():
             print("Newsletter content generated successfully. Use -o to save to a file or --send-email to send.")
 
         if args.send_email:
-            if all([args.recipient_email, args.sender-email, args.smtp_server, args.smtp_user, args.smtp_password]):
+           if all([args.recipient_email, args.sender_email, args.smtp_server, args.smtp_user, args.smtp_password]):
                 generator.send_email(
                     subject=args.title,
                     body=newsletter_html,
