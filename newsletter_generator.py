@@ -28,9 +28,8 @@ from rich.progress import Progress
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
-# --- Custom Help Formatter (No changes) ---
+# --- Custom Help Formatter ---
 class CustomHelpFormatter(argparse.HelpFormatter):
-    """Custom help formatter for argparse."""
     def _format_action_invocation(self, action):
         if not action.option_strings:
             metavar, = self._metavar_formatter(action, action.dest)(1)
@@ -44,20 +43,14 @@ class CustomHelpFormatter(argparse.HelpFormatter):
     def _split_lines(self, text, width):
         return text.splitlines()
 
-# --- Newsletter Generator Class (Modified) ---
+# --- Newsletter Generator Class ---
 class NewsletterGenerator:
-    """
-    Generates and emails newsletters from news articles using AI.
-    """
     def __init__(self, news_api_key, openai_api_key, cache_timeout=3600):
         self.news_api_key = news_api_key
         self.cache_timeout = cache_timeout
         openai.api_key = openai_api_key
 
     def fetch_articles(self, topic, max_articles=5):
-        """
-        Fetches articles from the News API.
-        """
         url = f"https://newsapi.org/v2/everything?q={topic}&apiKey={self.news_api_key}&pageSize={max_articles}&language=en"
         cache_file = f"./cache/{hashlib.md5(url.encode()).hexdigest()}.json"
 
@@ -78,12 +71,8 @@ class NewsletterGenerator:
             return None
 
     def summarize_article(self, article_content):
-        """
-        Summarizes an article using the OpenAI API.
-        """
         try:
             prompt_message = f"Please summarize the following article in a concise, email-friendly format, ensuring the summary is between 3 and 5 sentences long:\n\n{article_content}"
-            
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -98,13 +87,9 @@ class NewsletterGenerator:
             return "Summary could not be generated."
 
     def create_newsletter_content(self, title, topic, articles):
-        """
-        Creates the full newsletter content as an HTML string with styling.
-        """
         if not articles:
             return "No articles found for the newsletter."
 
-        # Start of the HTML document with embedded CSS for styling
         html_content = f"""
         <html>
         <head>
@@ -126,40 +111,13 @@ class NewsletterGenerator:
                     border-radius: 8px;
                     box-shadow: 0 4px 15px rgba(0,0,0,0.05);
                 }}
-                h1 {{
-                    color: #2c3e50;
-                    text-align: center;
-                    font-weight: 700;
-                }}
-                h2 {{
-                    color: #1abc9c;
-                    border-bottom: 2px solid #f4f7f6;
-                    padding-bottom: 10px;
-                    font-weight: 700;
-                }}
-                .article {{
-                    margin-bottom: 25px;
-                }}
-                .footer {{
-                    text-align: center;
-                    margin-top: 30px;
-                    font-size: 0.9em;
-                    color: #95a5a6;
-                }}
-                a {{
-                    color: #1abc9c;
-                    text-decoration: none;
-                    font-weight: bold;
-                }}
-                a:hover {{
-                    text-decoration: underline;
-                }}
-                hr {{
-                    border: 0;
-                    height: 1px;
-                    background: #e0e5e4;
-                    margin: 30px 0;
-                }}
+                h1 {{ color: #2c3e50; text-align: center; font-weight: 700; }}
+                h2 {{ color: #1abc9c; border-bottom: 2px solid #f4f7f6; padding-bottom: 10px; font-weight: 700; }}
+                .article {{ margin-bottom: 25px; }}
+                .footer {{ text-align: center; margin-top: 30px; font-size: 0.9em; color: #95a5a6; }}
+                a {{ color: #1abc9c; text-decoration: none; font-weight: bold; }}
+                a:hover {{ text-decoration: underline; }}
+                hr {{ border: 0; height: 1px; background: #e0e5e4; margin: 30px 0; }}
             </style>
         </head>
         <body>
@@ -170,21 +128,17 @@ class NewsletterGenerator:
 
         with Progress() as progress:
             task = progress.add_task("[cyan]Generating newsletter...", total=len(articles))
-
             for index, article in enumerate(articles):
                 progress.update(task, advance=1, description=f"[cyan]Summarizing article...")
-                
                 content_to_summarize = article.get('content') or article.get('description', '')
                 summary = self.summarize_article(content_to_summarize)
-
                 html_content += f"""
                 <div class="article">
                     <h2>{article['title']}</h2>
-                    <p>{summary}</p> 
+                    <p>{summary}</p>
                     <a href="{article['url']}" target="_blank">Read Full Article &rarr;</a>
                 </div>
                 """
-                
                 if index < len(articles) - 1:
                     html_content += "<hr>"
 
@@ -199,9 +153,6 @@ class NewsletterGenerator:
         return html_content
 
     def send_email(self, subject, body, sender_email, recipient_email, smtp_server, smtp_port, smtp_user, smtp_password):
-        """
-        Sends the newsletter via email using SMTP.
-        """
         msg = MIMEMultipart()
         msg['From'] = sender_email
         msg['To'] = recipient_email
@@ -217,13 +168,9 @@ class NewsletterGenerator:
         except smtplib.SMTPException as e:
             logger.error(f"Failed to send email: {e}")
 
-# --- Main Function (No changes) ---
+# --- Main Function ---
 def main():
-    """
-    Main function to handle command-line arguments and generate the newsletter.
-    """
     start_time = time.time()
-
     parser = argparse.ArgumentParser(description="Generate and email a newsletter from news articles.", formatter_class=CustomHelpFormatter)
     parser.add_argument("-t", "--title", type=str, required=True, help="Title of the newsletter")
     parser.add_argument("-to", "--topic", type=str, required=True, help="Topic for the news articles")
@@ -258,7 +205,7 @@ def main():
             print("Newsletter content generated successfully. Use -o to save to a file or --send-email to send.")
 
         if args.send_email:
-           if all([args.recipient_email, args.sender_email, args.smtp_server, args.smtp_user, args.smtp_password]):
+            if all([args.recipient_email, args.sender_email, args.smtp_server, args.smtp_user, args.smtp_password]):
                 generator.send_email(
                     subject=args.title,
                     body=newsletter_html,
